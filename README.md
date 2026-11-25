@@ -32,6 +32,29 @@ python main.py
 Saat kalibrasi, kotak yang sedang direkam ditandai kuning di jendela **Kamera**.
 Tekan `R` saat bermain untuk kalibrasi ulang. `q` / `ESC` untuk keluar.
 
+## Tes pakai OBS Virtual Camera
+
+1. Buka OBS, tambah sumber (mis. **Media Source** berisi video tangan, atau
+   **Video Capture Device**).
+2. Klik **Start Virtual Camera** di panel Controls.
+3. Jalankan game dengan kamera OBS:
+
+```bash
+python main.py "OBS Virtual Camera"
+```
+
+Atau set `CAMERA = "OBS Virtual Camera"` di `main.py`.
+
+Kalau mau pakai index angka:
+
+```bash
+python -c "from pygrabber.dshow_graph import FilterGraph; print(FilterGraph().get_input_devices())"
+python main.py 4
+```
+
+Nama kamera dicocokkan tanpa peduli huruf besar/kecil, jadi `"obs"` juga bisa.
+Resolusi OBS (mis. 1920x1080) otomatis diperkecil ke 360x270 untuk deteksi.
+
 ## Tips
 
 - Rekam dengan latar kotak yang tidak berubah-ubah (dinding polos paling aman).
@@ -44,7 +67,8 @@ Tekan `R` saat bermain untuk kalibrasi ulang. `q` / `ESC` untuk keluar.
 - `REC_FRAMES` — jumlah frame yang direkam per langkah kalibrasi.
 - `HAND_MAJORITY` — porsi minimal kotak yang harus mirip tangan (default 0,50).
 - `BOX_LEFT`, `BOX_RIGHT` — posisi & ukuran kotak di tampilan kamera.
-- `CAM_INDEX` — ganti kalau webcam bukan kamera 0.
+- `CAMERA` — index angka (`0`, `1`, ...) atau nama kamera (`"OBS Virtual Camera"`).
+  Bisa juga lewat terminal: `python main.py "OBS Virtual Camera"`.
 - `CAR_GAP`, `CAR_SPEED`, `PED_SPEED`, `MAX_PEDS` — tingkat kesulitan.
 
 ## Isi folder

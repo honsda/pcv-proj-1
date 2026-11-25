@@ -1,10 +1,11 @@
 import random
+import sys
 import time
 
 import cv2
 import numpy as np
 
-CAM_INDEX = 0
+CAMERA = 0
 CAM_W, CAM_H = 360, 270
 REC_FRAMES = 20
 
@@ -249,10 +250,33 @@ def draw_camera(cam, label_l, label_r, color_l, color_r, active=(),
     return cam
 
 
-def main():
-    cap = cv2.VideoCapture(CAM_INDEX)
+def camera_names():
+    try:
+        from pygrabber.dshow_graph import FilterGraph
+    except ImportError:
+        return []
+    return FilterGraph().get_input_devices()
+
+
+def open_camera(src):
+    if isinstance(src, str) and not src.isdigit():
+        names = camera_names()
+        for i, name in enumerate(names):
+            if src.lower() in name.lower():
+                cap = cv2.VideoCapture(i, cv2.CAP_DSHOW)
+                if cap.isOpened():
+                    return cap
+        raise SystemExit('Kamera "%s" tidak ada. Terdeteksi: %s' % (src, names))
+    cap = cv2.VideoCapture(int(src), cv2.CAP_DSHOW)
     if not cap.isOpened():
-        raise SystemExit("Kamera tidak bisa dibuka. Cek CAM_INDEX / izin kamera.")
+        raise SystemExit("Kamera %s tidak bisa dibuka. Cek izin kamera." % src)
+    return cap
+
+
+def main():
+    src = sys.argv[1] if len(sys.argv) > 1 else CAMERA
+    cap = open_camera(src)
+    print("kamera:", src)
 
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
