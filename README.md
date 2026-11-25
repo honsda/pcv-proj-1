@@ -55,6 +55,24 @@ python main.py 4
 Nama kamera dicocokkan tanpa peduli huruf besar/kecil, jadi `"obs"` juga bisa.
 Resolusi OBS (mis. 1920x1080) otomatis diperkecil ke 360x270 untuk deteksi.
 
+## Kalau kamera tidak bisa dibuka
+
+Pesan errornya sudah menampilkan daftar kamera beserta index-nya, contoh:
+
+```
+Kamera 0 tidak bisa dibuka.
+Kamera terdeteksi:
+  0  DroidCam Video
+  1  DroidCam Source 3
+  2  Camera (NVIDIA Broadcast)
+  3  DroidCam Source 2
+  4  OBS Virtual Camera
+Contoh: python main.py 4   atau   python main.py "OBS Virtual Camera"
+```
+
+Pilih salah satu index / nama itu. `python main.py` tanpa argumen memakai
+`CAMERA` di `main.py` (default `0`).
+
 ## Tips
 
 - Rekam dengan latar kotak yang tidak berubah-ubah (dinding polos paling aman).

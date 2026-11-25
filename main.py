@@ -258,19 +258,30 @@ def camera_names():
     return FilterGraph().get_input_devices()
 
 
+def device_list(names):
+    if not names:
+        return "Daftar kamera tidak tersedia (pip install pygrabber)."
+    return ("Kamera terdeteksi:\n" +
+            "\n".join("  %d  %s" % (i, n) for i, n in enumerate(names)) +
+            '\nContoh: python main.py 4   atau   '
+            'python main.py "OBS Virtual Camera"')
+
+
 def open_camera(src):
+    names = camera_names()
     if isinstance(src, str) and not src.isdigit():
-        names = camera_names()
-        for i, name in enumerate(names):
-            if src.lower() in name.lower():
-                cap = cv2.VideoCapture(i, cv2.CAP_DSHOW)
-                if cap.isOpened():
-                    return cap
-        raise SystemExit('Kamera "%s" tidak ada. Terdeteksi: %s' % (src, names))
-    cap = cv2.VideoCapture(int(src), cv2.CAP_DSHOW)
-    if not cap.isOpened():
-        raise SystemExit("Kamera %s tidak bisa dibuka. Cek izin kamera." % src)
-    return cap
+        idx = next((i for i, n in enumerate(names)
+                    if src.lower() in n.lower()), None)
+        if idx is None:
+            raise SystemExit('Kamera "%s" tidak ada.\n%s' % (src, device_list(names)))
+    else:
+        idx = int(src)
+
+    for backend in (cv2.CAP_DSHOW, cv2.CAP_MSMF):
+        cap = cv2.VideoCapture(idx, backend)
+        if cap.isOpened():
+            return cap
+    raise SystemExit("Kamera %s tidak bisa dibuka.\n%s" % (src, device_list(names)))
 
 
 def main():
@@ -296,6 +307,7 @@ def main():
     while True:
         ok, frame = cap.read()
         if not ok:
+            print("Frame tidak terbaca dari kamera:", src)
             break
 
         cam = cv2.flip(cv2.resize(frame, (CAM_W, CAM_H)), 1)
