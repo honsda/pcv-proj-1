@@ -6,12 +6,11 @@ import numpy as np
 
 CAM_INDEX = 0
 CAM_W, CAM_H = 360, 270
+REC_FRAMES = 20
 
 BOX_LEFT = (25, 95, 135, 205)
 BOX_RIGHT = (225, 95, 335, 205)
 
-HAND_LOW = np.array([0, 40, 80])
-HAND_HIGH = np.array([25, 255, 255])
 HAND_MAJORITY = 0.50
 
 GAME_W, GAME_H = 900, 520
@@ -34,6 +33,7 @@ GREEN = (80, 200, 90)
 RED = (70, 70, 225)
 YELLOW = (60, 210, 240)
 WHITE = (240, 240, 240)
+GREY = (190, 190, 190)
 DARK = (28, 30, 34)
 
 
@@ -47,15 +47,27 @@ def text_right(img, s, x, y, color, scale=0.6, thickness=1):
     text(img, s, (x - w, y), color, scale, thickness)
 
 
+def text_center(img, s, y, color, scale=0.7, thickness=1):
+    w = cv2.getTextSize(s, cv2.FONT_HERSHEY_SIMPLEX, scale, thickness)[0][0]
+    text(img, s, ((GAME_W - w) // 2, y), color, scale, thickness)
+
+
 def overlap(a, b):
     return (a["x"] < b["x"] + b["w"] and a["x"] + a["w"] > b["x"] and
             a["y"] < b["y"] + b["h"] and a["y"] + a["h"] > b["y"])
 
 
-def hand_ratio(hsv, box):
+def box_mean(img, box):
     x1, y1, x2, y2 = box
-    mask = cv2.inRange(hsv[y1:y2, x1:x2], HAND_LOW, HAND_HIGH)
-    return cv2.countNonZero(mask) / mask.size
+    return img[y1:y2, x1:x2].mean(axis=(0, 1))
+
+
+def hand_ratio(img, box, bg, hand):
+    x1, y1, x2, y2 = box
+    roi = img[y1:y2, x1:x2].astype(np.float32)
+    d_bg = ((roi - bg) ** 2).sum(axis=2)
+    d_hand = ((roi - hand) ** 2).sum(axis=2)
+    return float((d_hand < d_bg).mean())
 
 
 class Game:
@@ -184,7 +196,7 @@ class Game:
         text(img, "Selamat: %d    Tertabrak: %d" % (self.saved, self.crashed),
              (16, GAME_H - 18), WHITE, 0.7)
         text_right(img, "tangan di KIRI = stop, tangan di KANAN = jalan",
-                   GAME_W - 16, GAME_H - 18, (200, 200, 200), 0.5)
+                   GAME_W - 16, GAME_H - 18, GREY, 0.5)
 
         if self.flash > 0:
             text_right(img, "TERTABRAK!", GAME_W // 2 + 110, 130, RED, 1.4, 4)
@@ -192,14 +204,48 @@ class Game:
         return img
 
 
-def draw_camera(cam, left_on, right_on, ratio_l, ratio_r):
-    for box, on, ratio, label in ((BOX_LEFT, left_on, ratio_l, "KIRI"),
-                                  (BOX_RIGHT, right_on, ratio_r, "KANAN")):
-        color = GREEN if on else RED
-        cv2.rectangle(cam, box[:2], box[2:], color, 2)
-        text(cam, "%s %d (%.0f%%)" % (label, on, ratio * 100),
-             (box[0], box[1] - 8), color, 0.5, 2)
-    text(cam, "q / ESC = keluar", (12, CAM_H - 12), WHITE, 0.5)
+def screen_menu():
+    lines = ("1. rekam kotak kosong", "2. rekam tangan di kotak kiri",
+             "3. rekam tangan di kotak kanan")
+    x = (GAME_W - max(cv2.getTextSize(s, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 1)[0][0]
+                      for s in lines)) // 2
+    img = np.full((GAME_H, GAME_W, 3), BG, np.uint8)
+    text_center(img, "MINI GAME SIMPANG JALAN", 140, WHITE, 1.1, 3)
+    text_center(img, "kendalikan pejalan kaki dengan warna tangan", 190, GREY, 0.7)
+    for i, s in enumerate(lines):
+        text(img, s, (x, 265 + i * 40), WHITE, 0.7)
+    text_center(img, "tekan SPASI untuk mulai", 440, GREEN, 0.9, 2)
+    return img
+
+
+def screen_cal(step, rec):
+    titles = ("kosongkan kedua kotak", "angkat tangan di kotak KIRI",
+              "angkat tangan di kotak KANAN")
+    img = np.full((GAME_H, GAME_W, 3), BG, np.uint8)
+    text_center(img, "KALIBRASI %d / 3" % (step + 1), 150, WHITE, 1.0, 2)
+    text_center(img, titles[step], 230, YELLOW, 0.8, 2)
+    if rec == 0:
+        text_center(img, "tekan SPASI untuk merekam", 330, GREEN, 0.8, 2)
+    else:
+        text_center(img, "merekam %d%%" % (rec * 100 // REC_FRAMES),
+                    330, GREEN, 0.8, 2)
+        cv2.rectangle(img, (300, 360), (600, 382), (80, 82, 88), -1)
+        cv2.rectangle(img, (300, 360),
+                      (300 + 300 * rec // REC_FRAMES, 382), GREEN, -1)
+    if step > 0:
+        text_center(img, "isi kotak sampai lebih dari separuh", 470, GREY, 0.6)
+    return img
+
+
+def draw_camera(cam, label_l, label_r, color_l, color_r, active=(),
+                hint="q / ESC = keluar"):
+    for i, (box, s, c) in enumerate(zip((BOX_LEFT, BOX_RIGHT),
+                                        (label_l, label_r),
+                                        (color_l, color_r))):
+        c = YELLOW if i in active else c
+        cv2.rectangle(cam, box[:2], box[2:], c, 3 if i in active else 2)
+        text(cam, s, (box[0], box[1] - 8), c, 0.5, 2)
+    text(cam, hint, (12, CAM_H - 12), WHITE, 0.5)
     return cam
 
 
@@ -217,6 +263,10 @@ def main():
     cv2.moveWindow("Kamera", 930, 10)
 
     game = Game()
+    bg = [None, None]
+    hand = [None, None]
+    acc = [np.zeros(3, np.float32), np.zeros(3, np.float32)]
+    state, step, rec = "menu", 0, 0
     last = time.perf_counter()
 
     while True:
@@ -225,24 +275,71 @@ def main():
             break
 
         cam = cv2.flip(cv2.resize(frame, (CAM_W, CAM_H)), 1)
-        hsv = cv2.cvtColor(cam, cv2.COLOR_BGR2HSV)
-        rl = hand_ratio(hsv, BOX_LEFT)
-        rr = hand_ratio(hsv, BOX_RIGHT)
-        left_on = rl > HAND_MAJORITY
-        right_on = rr > HAND_MAJORITY
 
-        now = time.perf_counter()
-        dt = min(0.05, now - last)
-        last = now
-        game.update(dt, left_on, right_on)
+        if state == "menu":
+            screen = screen_menu()
+            draw_camera(cam, "KIRI", "KANAN", WHITE, WHITE)
 
-        draw_camera(cam, left_on, right_on, rl, rr)
+        elif state == "game":
+            rl = hand_ratio(cam, BOX_LEFT, bg[0], hand[0])
+            rr = hand_ratio(cam, BOX_RIGHT, bg[1], hand[1])
+            left_on = rl > HAND_MAJORITY
+            right_on = rr > HAND_MAJORITY
+
+            now = time.perf_counter()
+            game.update(min(0.05, now - last), left_on, right_on)
+            last = now
+
+            screen = game.draw(left_on, right_on, rl, rr)
+            draw_camera(cam, "KIRI %d (%.0f%%)" % (left_on, rl * 100),
+                        "KANAN %d (%.0f%%)" % (right_on, rr * 100),
+                        GREEN if left_on else RED,
+                        GREEN if right_on else RED,
+                        hint="q / ESC keluar, R kalibrasi ulang")
+
+        else:
+            if state == "cal_rec":
+                acc[0] += box_mean(cam, BOX_LEFT)
+                acc[1] += box_mean(cam, BOX_RIGHT)
+                rec += 1
+
+            screen = screen_cal(step, rec if state == "cal_rec" else 0)
+            draw_camera(cam, "KIRI", "KANAN", WHITE, WHITE,
+                        (0, 1) if step == 0 else (step - 1,))
+
+            if state == "cal_rec" and rec >= REC_FRAMES:
+                m0 = (acc[0] / rec).astype(np.float32)
+                m1 = (acc[1] / rec).astype(np.float32)
+                if step == 0:
+                    bg = [m0, m1]
+                elif step == 1:
+                    hand[0] = m0
+                else:
+                    hand[1] = m1
+                acc[0][:] = 0
+                acc[1][:] = 0
+                rec = 0
+                step += 1
+                state = "game" if step == 3 else "cal_wait"
+                last = time.perf_counter()
 
         cv2.imshow("Kamera", cam)
-        cv2.imshow("Game", game.draw(left_on, right_on, rl, rr))
+        cv2.imshow("Game", screen)
 
-        if cv2.waitKey(1) & 0xFF in (27, ord("q")):
+        key = cv2.waitKey(1) & 0xFF
+        if key in (27, ord("q")):
             break
+        if key == 32:
+            if state == "menu":
+                state, step, rec = "cal_wait", 0, 0
+            elif state == "cal_wait":
+                acc[0][:] = 0
+                acc[1][:] = 0
+                rec = 0
+                state = "cal_rec"
+        elif key == ord("r") and state == "game":
+            state, step, rec = "menu", 0, 0
+            game = Game()
 
     cap.release()
     cv2.destroyAllWindows()

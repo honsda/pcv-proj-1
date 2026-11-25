@@ -1,16 +1,16 @@
 # PCV Project 1 — Mini Game Simpang Jalan
 
-Game sederhana pakai kamera. Mobil (kotak dengan warna acak) lewat di jalan,
-pejalan kaki menyeberang lewat zebra cross. Kamu mengatur pejalan kaki dengan
+Game sederhana pakai kamera. Mobil (kotak warna acak) lewat di jalan, pejalan
+kaki menyeberang lewat zebra cross. Kamu mengatur pejalan kaki dengan
 **warna tangan** di dua kotak deteksi.
 
 | Kotak | Kondisi | Pejalan kaki |
 |-------|---------|--------------|
-| KIRI  | true (mayoritas warna tangan)  | berhenti |
-| KANAN | true (mayoritas warna tangan)  | jalan |
+| KIRI  | true  | berhenti |
+| KANAN | true  | jalan |
 | dua-duanya / tidak ada | — | jalan secara acak |
 
-Kalau pejalan kaki kena mobil: **Tertabrak**. Kalau sampai seberang: **Selamat**.
+Kena mobil = **Tertabrak**, sampai seberang = **Selamat**.
 
 ## Jalankan
 
@@ -19,29 +19,33 @@ pip install -r requirements.txt
 python main.py
 ```
 
-Tekan `q` atau `ESC` untuk keluar.
+## Alur
 
-## Cara main
+1. **Menu** — tekan `SPASI` untuk mulai.
+2. **Kalibrasi** (3 langkah, tiap langkah tekan `SPASI` untuk merekam ±0,7 detik):
+   1. kosongkan kedua kotak → direkam sebagai "tidak ada tangan"
+   2. angkat tangan di kotak **KIRI** → direkam sebagai "ada tangan"
+   3. angkat tangan di kotak **KANAN** → direkam sebagai "ada tangan"
+3. **Game** — kotak dianggap `1` (true) kalau lebih dari separuh isinya mirip
+   warna tangan hasil rekaman, bukan warna kotak kosong hasil rekaman.
 
-1. Arahkan kamera ke latar yang polos (dinding / kertas putih).
-2. Tangan di dalam kotak **KIRI** → pejalan kaki berhenti.
-3. Tangan di dalam kotak **KANAN** → pejalan kaki jalan.
-4. Tangan di dua kotak, atau tidak di mana pun → pejalan kaki jalan acak.
+Saat kalibrasi, kotak yang sedang direkam ditandai kuning di jendela **Kamera**.
+Tekan `R` saat bermain untuk kalibrasi ulang. `q` / `ESC` untuk keluar.
 
-Kotak dianggap **1 (true)** kalau lebih dari separuh luas kotak
-(`HAND_MAJORITY = 0.50`) berisi warna tangan. Jadi isi kotaknya sampai penuh,
-jangan cuma ujung jari.
+## Tips
 
-## Kalau tangan tidak terdeteksi
+- Rekam dengan latar kotak yang tidak berubah-ubah (dinding polos paling aman).
+- Isi kotak sampai lebih dari separuh — ujung jari saja tidak cukup.
+- Kalau warna tangan mirip latar, deteksi jadi ragu-ragu; pakai sarung tangan
+  atau kertas warna yang kontras.
 
-Semua pengaturan ada di bagian atas `main.py`:
+## Pengaturan di `main.py`
 
-- `HAND_LOW`, `HAND_HIGH` — rentang HSV warna tangan. Default warna kulit.
-  Kalau pakai kertas warna / sarung tangan, sesuaikan rentangnya
-  (contoh kuning: `[20, 100, 100]` sampai `[35, 255, 255]`).
-- `HAND_MAJORITY` — porsi minimal piksel tangan di dalam kotak.
-- `BOX_LEFT`, `BOX_RIGHT` — posisi & ukuran kotak deteksi di tampilan kamera.
+- `REC_FRAMES` — jumlah frame yang direkam per langkah kalibrasi.
+- `HAND_MAJORITY` — porsi minimal kotak yang harus mirip tangan (default 0,50).
+- `BOX_LEFT`, `BOX_RIGHT` — posisi & ukuran kotak di tampilan kamera.
 - `CAM_INDEX` — ganti kalau webcam bukan kamera 0.
+- `CAR_GAP`, `CAR_SPEED`, `PED_SPEED`, `MAX_PEDS` — tingkat kesulitan.
 
 ## Isi folder
 
